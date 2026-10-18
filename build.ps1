@@ -15,14 +15,27 @@ $submodules = @(& git -C $source submodule status --recursive)
 if ($LASTEXITCODE -ne 0 -or $submodules.Count -ne 2 -or ($submodules | Where-Object { $_ -notmatch '^ [0-9a-f]{40} ' })) { throw 'SUBMODULE_REJECTED' }
 # Use the runner's installed toolchain only; never install/update it.
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
-$installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+$installation = & $vswhere -latest -version '[17.0,18.0)' -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
 if ($LASTEXITCODE -ne 0 -or -not $installation) { throw 'TOOLCHAIN_UNAVAILABLE' }
 $vcvars = Join-Path $installation 'VC/Auxiliary/Build/vcvarsall.bat'
 $toolset = Join-Path $installation ('VC/Tools/MSVC/' + $policy.msvc_toolset)
 if (-not (Test-Path -LiteralPath $toolset -PathType Container)) { throw 'PINNED_TOOLSET_UNAVAILABLE' }
-$initialization = '""' + $vcvars + '" x64 ' + $policy.windows_sdk + ' -vcvars_ver=' + $policy.msvc_toolset + ' >nul && set"'
-$environment = & $env:ComSpec /d /s /c $initialization
-if ($LASTEXITCODE -ne 0) { throw 'TOOLCHAIN_INIT_FAILED' }
+# Avoid PowerShell native-argument quote rewriting; pass cmd its exact command line.
+if (-not (Test-Path -LiteralPath $vcvars -PathType Leaf) -or $vcvars -match '["%\r\n]' -or
+    $policy.windows_sdk -notmatch '^\d+\.\d+\.\d+\.\d+$' -or
+    $policy.msvc_toolset -notmatch '^\d+\.\d+\.\d+$') { throw 'TOOLCHAIN_ARGUMENT_REJECTED' }
+$start = [Diagnostics.ProcessStartInfo]::new()
+$start.FileName = $env:ComSpec
+$start.UseShellExecute = $false
+$start.CreateNoWindow = $true
+$start.RedirectStandardOutput = $true
+$start.Arguments = '/d /s /c "call "' + $vcvars + '" x64 ' + $policy.windows_sdk + ' -vcvars_ver=' + $policy.msvc_toolset + ' >nul && set"'
+$child = [Diagnostics.Process]::Start($start)
+try {
+    $environment = $child.StandardOutput.ReadToEnd() -split "`r?`n"
+    $child.WaitForExit()
+    if ($child.ExitCode -ne 0) { throw 'TOOLCHAIN_INIT_FAILED' }
+} finally { $child.Dispose() }
 foreach ($line in $environment) {
     if ($line -match '^([^=]+)=(.*)$') { [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process') }
 }
