@@ -1,0 +1,8 @@
+# Build-only dependencies; upstream runtime dependencies remain unchanged.
+pip==25.1.1
+setuptools==78.1.0
+setuptools-scm==8.2.0
+wheel==0.45.1
+Cython==3.0.12
+cmake==3.31.6
+numpy==2.2.4

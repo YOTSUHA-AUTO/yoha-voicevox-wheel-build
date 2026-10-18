@@ -1,0 +1,14 @@
+{
+  "repository": "YOTSUHA-AUTO/yoha-voicevox-wheel-build",
+  "source_repository": "VOICEVOX/pyopenjtalk",
+  "source_commit": "74703b034dd90a1f199f49bb70bf3b66b1728a86",
+  "version": "0.1.dev251+g74703b0",
+  "python": "3.11.9",
+  "msvc_toolset": "14.44.35207",
+  "windows_sdk": "10.0.19041.0",
+  "cmake": "3.31.6",
+  "submodules": {
+    "lib/hts_engine_API": "214e26dfb7f728ff9db39c14a59db709abcc121d",
+    "lib/open_jtalk": "d2a2cbfcbd69abc74993ed8bab3fabc0111c9727"
+  }
+}
